@@ -139,15 +139,16 @@ git diff --check
 
 CI workflows reproduce macOS/Linux gates and the pinned Linux SDK fixture,
 including executed-count/no-skip checks. Remote CI, review-gauntlet checkpoints,
-user publication approval and release tag are pending. Local container evidence
+release tag are pending. Owner publication approval was received on 2026-10-04. Local container evidence
 is not a remote CI pass. R6 requires a green exact-revision CI/integration run
 before the annotated v0.1.0 release. Windows is not validated.
 
 ## Approval and release state
 
-This repository's imported code has not been pushed. The plan explicitly
-requires the owner to approve this repository's completed audit before the first
-public push. Approval has not yet been received. No release tag exists here.
+Owner approval was received on 2026-10-04 in this task conversation: ‘I approve’,
+in response to the request to approve this audit and public pushes of scaffold-only
+main and the implementation branch. The first push may now proceed. No release
+tag exists yet; remote CI and both gauntlet checkpoints remain required.
 
 ## Standard review corrections
 
@@ -190,7 +191,7 @@ The final follow-up changes only the test timing allowance and this evidence
 record; reviewed implementation source is identical to the attested revision.
 Both platform checks and the real mandatory fixtures now pass locally.
 
-Publication approval is still pending. The first gauntlet push checkpoint,
+Publication approval is recorded above. The first gauntlet push checkpoint,
 pinned upstream thermonuclear review/fixer and second checkpoint must follow
 approval in that order. Exact-revision remote CI/integration and the annotated
 v0.1.0 tag remain release gates. No implementation is merged into main.
