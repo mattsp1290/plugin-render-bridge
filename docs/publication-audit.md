@@ -55,7 +55,8 @@ extraction details or private crash narratives remain.
 Committed path-history check:
 `git log --all --name-only --format=` must have no path matching
 `serum2_uidesc|\.fxp$|\.nki$|\.vital$|\.vstpreset$|\.vst3/`.
-The scaffold history passes; repeat on the full implementation before publication.
+The complete committed implementation history passed this prohibited-path check
+before review. Repeat it after each review correction before publication.
 
 ## L4 — Trademark documentation
 
@@ -99,7 +100,7 @@ is embedded. `ms_core|ms_vst3|ms_audio` has no source/test hits.
 ## Local verification and execution evidence
 
 macOS arm64: build all targets with testing support, complete tests, strict
-Clippy, formatting and rustdoc with warnings denied pass. Seventy non-plugin
+Clippy, formatting and rustdoc with warnings denied pass. Seventy-seven non-plugin
 cases execute, plus six installed Vital bridge cases, six installed Vital
 in-process rendering cases, and the separate required fixture case. Vital state
 is the default instrument state; no product preset scanner or binary fixture is
@@ -108,8 +109,9 @@ kills the native child, observes ProcessCrashed, respawns and renders audio agai
 The downstream renderer example and packaged binary reject a missing plugin in
 under ten seconds; a silent child also reaches its actual five-second deadline.
 
-Linux x86_64, Rust 1.93.1 in a local container: build all targets, complete tests,
-and strict Clippy pass. Installed Vital cases explicitly skip because it is not
+Linux x86_64, Rust 1.93.1 in a local container: before the standard review fixes,
+build all targets, complete tests and strict Clippy passed. An updated Linux
+run is still live; it is not claimed as passing after the review corrections. Installed Vital cases explicitly skip because it is not
 installed. The separate required SDK fixture executes exactly one passed test,
 zero failures/ignored cases and no SKIPPED lines. Its instrument comes from the
 MIT SDK root `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0` and recursive submodules,
@@ -144,3 +146,20 @@ before the annotated v0.1.0 release. Windows is not validated.
 This repository's imported code has not been pushed. The plan explicitly
 requires the owner to approve this repository's completed audit before the first
 public push. Approval has not yet been received. No release tag exists here.
+
+## Standard review corrections
+
+The two independent standard reviewers returned REQUEST_CHANGES on
+`eec849f2eb2d45d22b711e50ebfac2f769121da4`. The canonical automatic fixer applied
+three Important fixes and one Suggestion: explicit startup deadline checking even
+under continuous non-ready output; supervised writes/responses/shutdown with a
+single transaction deadline and invalidated transport after timeout; required
+latency drain before tail silence detection; and sample-accurate note-off inside
+a block. The mock processor now honors those event offsets as well.
+
+New private `src/bridge/transport.rs` owns pipe workers and bounded channels.
+New synthetic tests cover noisy startup, stalled responses, a 16 MiB state write
+to an unread pipe, bounded Drop and healthy respawn after timeout. Three delay-line
+cases verify audible short notes with latency longer than sustain/declared tail,
+exact 441-sample sustain with 512-sample blocks, and defined zero-duration silence.
+No additional source repository file, preset or plugin resource was imported.

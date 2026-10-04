@@ -4,9 +4,8 @@
 //! via JSON lines over stdin/stdout. Plugin crashes in the child process
 //! do not affect the host.
 
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
@@ -16,6 +15,9 @@ use crate::bridge_protocol::{Command as BridgeCommand, ReadySignal, Response};
 use crate::buffer::AudioBuffer;
 use crate::config::RenderSettings;
 use crate::render::{NoteRenderer, RenderError};
+
+mod transport;
+use transport::{Transport, TransportError, command_budget};
 
 /// Timeout for the child process to become ready after spawning.
 const READY_TIMEOUT: Duration = Duration::from_secs(5);
@@ -39,6 +41,9 @@ pub enum BridgeError {
     #[error("renderer returned error: {0}")]
     RendererError(String),
 
+    #[error("renderer command timed out")]
+    CommandTimeout,
+
     #[error("renderer binary not found")]
     BinaryNotFound,
 }
@@ -50,8 +55,7 @@ pub enum BridgeError {
 /// the host continues running and can respawn the renderer.
 pub struct BridgeRenderer {
     child: Child,
-    stdin: BufWriter<ChildStdin>,
-    responses: std::sync::mpsc::Receiver<Result<String, String>>,
+    transport: Option<Transport>,
     plugin_name: String,
     // Stored for respawn
     renderer_bin: PathBuf,
@@ -97,43 +101,19 @@ impl BridgeRenderer {
             .take()
             .ok_or_else(|| BridgeError::SpawnFailed("failed to capture stdout".into()))?;
 
-        // 64KB capacity handles large SetState payloads (base64-encoded preset
-        // state) without chunking across multiple write syscalls.
-        let stdin = BufWriter::with_capacity(64 * 1024, stdin);
-        let (sender, responses) = std::sync::mpsc::sync_channel(8);
-        std::thread::spawn(move || {
-            let mut reader = BufReader::new(stdout);
-            loop {
-                // Bound unsolicited output without waiting for an entire huge line.
-                let mut line = String::new();
-                let result = (&mut reader).take(65537).read_line(&mut line);
-                let message = match result {
-                    Ok(0) => break,
-                    Ok(_) if line.len() > 65536 => {
-                        Err("renderer output line exceeds 64 KiB".into())
-                    }
-                    Ok(_) => Ok(line),
-                    Err(e) => Err(e.to_string()),
-                };
-                let terminal = message.is_err();
-                if sender.send(message).is_err() || terminal {
-                    break;
-                }
-            }
-        });
+        let transport = Transport::new(stdin, stdout);
 
         let deadline = Instant::now() + READY_TIMEOUT;
         loop {
-            let result = responses.recv_timeout(deadline.saturating_duration_since(Instant::now()));
+            let result = transport.read(deadline);
             match result {
-                Ok(Ok(line)) => {
+                Ok(line) => {
                     if let Ok(ready) = serde_json::from_str::<ReadySignal>(line.trim())
                         && ready.status == "ready"
                     {
                         return Ok(Self {
                             child,
-                            stdin,
-                            responses,
+                            transport: Some(transport),
                             plugin_name: ready.name,
                             renderer_bin: renderer_bin.to_path_buf(),
                             binary_path: binary_path.to_path_buf(),
@@ -154,15 +134,11 @@ impl BridgeRenderer {
                 }
                 result => {
                     let error = match result {
-                        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                            BridgeError::ReadyTimeout
-                        }
-                        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                            BridgeError::ProcessCrashed(
-                                child.try_wait().ok().flatten().and_then(|s| s.code()),
-                            )
-                        }
-                        Ok(Err(e)) => BridgeError::Ipc(e),
+                        Err(TransportError::Timeout) => BridgeError::ReadyTimeout,
+                        Err(TransportError::Closed) => BridgeError::ProcessCrashed(
+                            child.try_wait().ok().flatten().and_then(|s| s.code()),
+                        ),
+                        Err(TransportError::Io(e)) => BridgeError::Ipc(e),
                         _ => unreachable!(),
                     };
                     let _ = child.kill();
@@ -173,11 +149,7 @@ impl BridgeRenderer {
         }
     }
 
-    /// Send a JSON command and read the response.
-    ///
-    /// NOTE: Large payloads (>64KB after base64 encoding) risk blocking if the
-    /// OS pipe buffer fills before the child reads. For very large preset state,
-    /// a future improvement would write to a temp file and pass the path.
+    /// Supervise both pipe writing and response receipt under one deadline.
     fn send_command(&mut self, cmd: &BridgeCommand) -> Result<Response, BridgeError> {
         if let Some(status) = self
             .child
@@ -186,26 +158,38 @@ impl BridgeRenderer {
         {
             return Err(BridgeError::ProcessCrashed(status.code()));
         }
-        let line = serde_json::to_string(cmd)
-            .map_err(|e| BridgeError::Ipc(format!("serialize error: {e}")))?;
-
-        self.stdin
-            .write_all(line.as_bytes())
-            .map_err(|e| BridgeError::Ipc(format!("write error: {e}")))?;
-        self.stdin
-            .write_all(b"\n")
-            .map_err(|e| BridgeError::Ipc(format!("write newline error: {e}")))?;
-        self.stdin
-            .flush()
-            .map_err(|e| BridgeError::Ipc(format!("flush error: {e}")))?;
-
-        match self.responses.recv() {
-            Ok(Ok(line)) => serde_json::from_str(line.trim())
+        let mut line = serde_json::to_vec(cmd).map_err(|e| BridgeError::Ipc(e.to_string()))?;
+        line.push(b'\n');
+        let deadline = Instant::now()
+            .checked_add(command_budget(cmd))
+            .ok_or_else(|| BridgeError::Ipc("command duration is too large".into()))?;
+        let result = self
+            .transport
+            .as_ref()
+            .ok_or(BridgeError::ProcessCrashed(None))?
+            .write(line, deadline)
+            .and_then(|()| self.transport.as_ref().unwrap().read(deadline));
+        match result {
+            Ok(line) => serde_json::from_str(line.trim())
                 .map_err(|e| BridgeError::Ipc(format!("invalid response JSON: {e}"))),
-            Ok(Err(e)) => Err(BridgeError::Ipc(e)),
-            Err(_) => Err(BridgeError::ProcessCrashed(
-                self.child.try_wait().ok().flatten().and_then(|s| s.code()),
-            )),
+            Err(error) => {
+                let result = match error {
+                    TransportError::Timeout => BridgeError::CommandTimeout,
+                    TransportError::Closed => BridgeError::ProcessCrashed(
+                        self.child.try_wait().ok().flatten().and_then(|s| s.code()),
+                    ),
+                    TransportError::Io(e) => match self.child.try_wait().ok().flatten() {
+                        Some(status) => BridgeError::ProcessCrashed(status.code()),
+                        None => BridgeError::Ipc(e),
+                    },
+                };
+                // Kill before dropping transport, unblocking pipe workers. Never reuse
+                // this receiver: a late response cannot satisfy the next transaction.
+                let _ = self.child.kill();
+                let _ = self.child.wait();
+                self.transport.take();
+                Err(result)
+            }
         }
     }
 
@@ -318,11 +302,9 @@ impl NoteRenderer for BridgeRenderer {
 
 impl Drop for BridgeRenderer {
     fn drop(&mut self) {
-        // Try graceful shutdown
-        if let Ok(line) = serde_json::to_string(&BridgeCommand::Quit) {
-            let _ = self.stdin.write_all(line.as_bytes());
-            let _ = self.stdin.write_all(b"\n");
-            let _ = self.stdin.flush();
+        // Queue a quit without ever writing a pipe on this thread.
+        if let Some(transport) = &self.transport {
+            transport.quit();
         }
 
         // Give the child a moment to exit

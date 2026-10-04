@@ -97,7 +97,6 @@ pub fn render_note(
     let note_on_event = seq.events[0];
     let note_off_event = seq.events[1];
     let mut note_off_sent = false;
-    let mut samples_since_note_off: usize = 0;
 
     // Use plugin-declared tail as a tighter upper bound when available.
     // Falls back to config.tail_timeout for infinite tail or when not provided.
@@ -123,10 +122,10 @@ pub fn render_note(
             block_events.push(note_on_event);
         }
 
-        // Note-off when we've rendered enough sustain
-        if !note_off_sent && total_samples >= note_duration_samples {
+        // Zero duration sends note-on then note-off at sample zero.
+        if !note_off_sent && note_duration_samples < total_samples.saturating_add(block_size) {
             block_events.push(MidiEvent {
-                sample_offset: 0,
+                sample_offset: note_duration_samples.saturating_sub(total_samples) as u32,
                 kind: note_off_event.kind,
             });
             note_off_sent = true;
@@ -141,17 +140,17 @@ pub fn render_note(
         output.append(&block_buf);
         total_samples += block_size;
 
-        // Stage 5: After note-off, check for silence
+        // Drain mandatory output latency before measuring the audible tail.
         if note_off_sent {
-            samples_since_note_off += block_size;
-
-            if is_block_silent(&block_buf, config.silence_threshold) {
-                break;
-            }
-
-            // Hard limit: use plugin-declared tail or config timeout
-            if samples_since_note_off >= max_tail_samples {
-                break;
+            let samples_since_note_off = total_samples.saturating_sub(note_duration_samples);
+            let latency = plugin_latency_samples as usize;
+            if samples_since_note_off >= latency {
+                let audible_tail_samples = samples_since_note_off - latency;
+                if is_block_silent(&block_buf, config.silence_threshold)
+                    || audible_tail_samples >= max_tail_samples
+                {
+                    break;
+                }
             }
         }
     }

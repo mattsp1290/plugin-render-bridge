@@ -85,40 +85,35 @@ impl AudioProcessor for MockVstPlugin {
         events: &[MidiEvent],
         output: &mut AudioBuffer,
     ) -> Result<(), String> {
-        // Process MIDI events
-        for event in events {
-            match event.kind {
-                MidiEventKind::NoteOn { note, velocity, .. } => {
-                    self.active_note = Some(ActiveNote {
-                        frequency: Self::note_to_freq(note),
-                        amplitude: velocity as f32 / 127.0,
-                    });
-                }
-                MidiEventKind::NoteOff { .. } => {
-                    self.active_note = None;
-                }
-                MidiEventKind::ControlChange { .. } => {}
-            }
-        }
-
-        // Generate audio
-        if let Some(ref note) = self.active_note {
-            let gain = self.current_gain();
-            let phase_inc = note.frequency / self.sample_rate as f64;
-
-            for i in 0..output.num_samples() {
-                let sample = (self.phase * 2.0 * PI as f64).sin() as f32 * note.amplitude * gain;
-                for ch in 0..output.num_channels() {
-                    output.channel_mut(ch)[i] = sample;
-                }
-                self.phase += phase_inc;
-                // Keep phase in [0, 1) to avoid precision loss
-                if self.phase >= 1.0 {
-                    self.phase -= 1.0;
+        for i in 0..output.num_samples() {
+            for event in events
+                .iter()
+                .filter(|event| event.sample_offset as usize == i)
+            {
+                match event.kind {
+                    MidiEventKind::NoteOn { note, velocity, .. } => {
+                        self.active_note = Some(ActiveNote {
+                            frequency: Self::note_to_freq(note),
+                            amplitude: velocity as f32 / 127.0,
+                        });
+                    }
+                    MidiEventKind::NoteOff { .. } => self.active_note = None,
+                    MidiEventKind::ControlChange { .. } => {}
                 }
             }
+            let sample = if let Some(note) = &self.active_note {
+                let sample = (self.phase * 2.0 * PI as f64).sin() as f32
+                    * note.amplitude
+                    * self.current_gain();
+                self.phase = (self.phase + note.frequency / self.sample_rate as f64).fract();
+                sample
+            } else {
+                0.0
+            };
+            for ch in 0..output.num_channels() {
+                output.channel_mut(ch)[i] = sample;
+            }
         }
-        // If no active note, output remains zeroed (silence)
 
         Ok(())
     }

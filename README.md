@@ -57,6 +57,11 @@ A bundle can be resolved to its native binary through the re-exported
 Arguments: `<plugin-binary> <sample-rate-hz> <buffer-size> [--tempo <bpm>]`.
 Startup emits `{"status":"ready","name":"..."}` or an error response followed
 by nonzero exit. Startup is bounded to five seconds by `BridgeRenderer`.
+State transactions have a 30-second deadline. Render transactions add the
+requested note duration and tail budget to that deadline. The same deadline
+covers pipe writing and response receipt. A timeout kills and reaps the child,
+invalidates its transport and returns `BridgeError::CommandTimeout`; call
+`respawn()` before retrying. Shutdown never blocks the caller on a pipe write.
 
 Each command and response occupies one JSON line:
 
@@ -78,6 +83,7 @@ and plugins; the child has the same filesystem access as the application.
 ## Build and verification
 
 Rust 1.93 or newer. Linux requires `libx11-dev` for the hosting dependency.
+Synthetic IPC regression tests require Python 3 on Unix.
 
 ```sh
 cargo build --locked --all-targets --features testing
