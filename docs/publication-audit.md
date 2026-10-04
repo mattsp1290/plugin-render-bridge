@@ -163,3 +163,15 @@ to an unread pipe, bounded Drop and healthy respawn after timeout. Three delay-l
 cases verify audible short notes with latency longer than sustain/declared tail,
 exact 441-sample sustain with 512-sample blocks, and defined zero-duration silence.
 No additional source repository file, preset or plugin resource was imported.
+
+Linux's first updated run exposed an end-to-end timing gap: state encoding and
+JSON serialization happened before the command clock began. The deadline now
+starts before encoding and covers both serialization and pipe I/O. The corrected
+macOS stalled-write/response regressions, required Vital fixture, strict Clippy,
+Rust 1.93 build and warning-free documentation pass. A reduced-concurrency Linux
+retry is live; its result remains unverified until its process completes.
+
+The empty remote also needs its initial main foundation. Local main contains
+only the original scaffold plus a scaffold-specific L5 audit; implementation
+commits remain on the feature branch. Both publication targets are prepared for
+review, with no remote source write or release tag yet.

@@ -60,6 +60,9 @@ impl Transport {
     }
 
     pub(super) fn write(&self, line: Vec<u8>, deadline: Instant) -> Result<(), TransportError> {
+        if Instant::now() >= deadline {
+            return Err(TransportError::Timeout);
+        }
         let (completed, result) = mpsc::channel();
         self.outbound
             .try_send(Outbound { line, completed })

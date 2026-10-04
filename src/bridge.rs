@@ -150,7 +150,11 @@ impl BridgeRenderer {
     }
 
     /// Supervise both pipe writing and response receipt under one deadline.
-    fn send_command(&mut self, cmd: &BridgeCommand) -> Result<Response, BridgeError> {
+    fn send_command(
+        &mut self,
+        cmd: &BridgeCommand,
+        started: Instant,
+    ) -> Result<Response, BridgeError> {
         if let Some(status) = self
             .child
             .try_wait()
@@ -160,7 +164,7 @@ impl BridgeRenderer {
         }
         let mut line = serde_json::to_vec(cmd).map_err(|e| BridgeError::Ipc(e.to_string()))?;
         line.push(b'\n');
-        let deadline = Instant::now()
+        let deadline = started
             .checked_add(command_budget(cmd))
             .ok_or_else(|| BridgeError::Ipc("command duration is too large".into()))?;
         let result = self
@@ -195,12 +199,13 @@ impl BridgeRenderer {
 
     /// Apply preset state to the plugin in the child process.
     pub fn bridge_set_state(&mut self, state_bytes: &[u8]) -> Result<(), BridgeError> {
+        let started = Instant::now();
         let encoded = base64::engine::general_purpose::STANDARD.encode(state_bytes);
         let cmd = BridgeCommand::SetState {
             state_base64: encoded,
         };
 
-        let resp = self.send_command(&cmd)?;
+        let resp = self.send_command(&cmd, started)?;
         if resp.ok {
             Ok(())
         } else {
@@ -219,6 +224,7 @@ impl BridgeRenderer {
         wav_path: &Path,
         config: &RenderSettings,
     ) -> Result<u64, BridgeError> {
+        let started = Instant::now();
         let cmd = BridgeCommand::Render {
             note,
             velocity,
@@ -228,7 +234,7 @@ impl BridgeRenderer {
             tail_timeout_secs: config.tail_timeout.as_secs_f64(),
         };
 
-        let resp = self.send_command(&cmd)?;
+        let resp = self.send_command(&cmd, started)?;
         if resp.ok {
             Ok(resp.samples.unwrap_or(0))
         } else {
