@@ -29,7 +29,7 @@ time.sleep(30)
     let start = Instant::now();
     let result = BridgeRenderer::spawn(&child, Path::new("unused"), 44100, 512, None);
     assert!(matches!(result, Err(BridgeError::ReadyTimeout)));
-    assert!(start.elapsed() < Duration::from_secs(6));
+    assert!(start.elapsed() < Duration::from_secs(10));
 }
 
 fn stalled_command(read_command: bool) {

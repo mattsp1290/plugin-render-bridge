@@ -110,8 +110,10 @@ The downstream renderer example and packaged binary reject a missing plugin in
 under ten seconds; a silent child also reaches its actual five-second deadline.
 
 Linux x86_64, Rust 1.93.1 in a local container: before the standard review fixes,
-build all targets, complete tests and strict Clippy passed. An updated Linux
-run is still live; it is not claimed as passing after the review corrections. Installed Vital cases explicitly skip because it is not
+build all targets, complete tests and strict Clippy passed. After the review corrections, a full updated Linux run passed as well,
+with build concurrency limited to two jobs and the test cases serialized.
+The complete required suite and strict Clippy passed; SDK fixture again reports
+exactly one passed case and no SKIPPED lines. Installed Vital cases explicitly skip because it is not
 installed. The separate required SDK fixture executes exactly one passed test,
 zero failures/ignored cases and no SKIPPED lines. Its instrument comes from the
 MIT SDK root `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0` and recursive submodules,
@@ -168,10 +170,27 @@ Linux's first updated run exposed an end-to-end timing gap: state encoding and
 JSON serialization happened before the command clock began. The deadline now
 starts before encoding and covers both serialization and pipe I/O. The corrected
 macOS stalled-write/response regressions, required Vital fixture, strict Clippy,
-Rust 1.93 build and warning-free documentation pass. A reduced-concurrency Linux
-retry is live; its result remains unverified until its process completes.
+Rust 1.93 build and warning-free documentation pass. The reduced-concurrency Linux retry completed with exit zero: build, full
+feature tests, strict Clippy and required SDK fixture all passed. The noisy
+startup regression retains its ReadyTimeout assertion and uses the plan's ten-second acceptance window; the original six-second elapsed allowance
+was too tight under emulation even though the timeout error was correct.
 
 The empty remote also needs its initial main foundation. Local main contains
 only the original scaffold plus a scaffold-specific L5 audit; implementation
 commits remain on the feature branch. Both publication targets are prepared for
 review, with no remote source write or release tag yet.
+
+## Independent fix attestations and pending public checkpoint
+
+Process Correctness and Library Boundaries both independently approved their
+focused fix rechecks at `63af9e6c94709805bc7fbaf247b8fcc6b5414f04`.
+The latter repeated its original noisy-child reproducer: it now returns
+ReadyTimeout at 5.003 seconds instead of accepting Ready at 7.215 seconds.
+The final follow-up changes only the test timing allowance and this evidence
+record; reviewed implementation source is identical to the attested revision.
+Both platform checks and the real mandatory fixtures now pass locally.
+
+Publication approval is still pending. The first gauntlet push checkpoint,
+pinned upstream thermonuclear review/fixer and second checkpoint must follow
+approval in that order. Exact-revision remote CI/integration and the annotated
+v0.1.0 tag remain release gates. No implementation is merged into main.
