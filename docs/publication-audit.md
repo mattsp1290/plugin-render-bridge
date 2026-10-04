@@ -138,17 +138,19 @@ git diff --check
 ```
 
 CI workflows reproduce macOS/Linux gates and the pinned Linux SDK fixture,
-including executed-count/no-skip checks. Remote CI, review-gauntlet checkpoints,
-release tag are pending. Owner publication approval was received on 2026-10-04. Local container evidence
-is not a remote CI pass. R6 requires a green exact-revision CI/integration run
+including executed-count/no-skip checks. Owner publication approval was received on 2026-10-04. Remote verification
+records are maintained in Beans R6 for the exact released revision. Local
+container evidence is not a remote CI pass. R6 requires a green exact-revision CI/integration run
 before the annotated v0.1.0 release. Windows is not validated.
 
 ## Approval and release state
 
 Owner approval was received on 2026-10-04 in this task conversation: ‘I approve’,
 in response to the request to approve this audit and public pushes of scaffold-only
-main and the implementation branch. The first push may now proceed. No release
-tag exists yet; remote CI and both gauntlet checkpoints remain required.
+main and the implementation branch. The first push checkpoint succeeded at
+`f3a6bb93b7c89ac2dc3277a2f939749ca17a2460` with matching remote SHA.
+Release requires green CI and required integration on the exact tagged commit;
+the annotated tag and unauthenticated readback are recorded in Beans R6.
 
 ## Standard review corrections
 
@@ -178,10 +180,10 @@ was too tight under emulation even though the timeout error was correct.
 
 The empty remote also needs its initial main foundation. Local main contains
 only the original scaffold plus a scaffold-specific L5 audit; implementation
-commits remain on the feature branch. Both publication targets are prepared for
-review, with no remote source write or release tag yet.
+commits remain on the feature branch. Both publication targets were approved on 2026-10-04 and pushed. Scaffold CI
+passed at `c34fd52c34ad9a35dfb088d99fa620289b840800`.
 
-## Independent fix attestations and pending public checkpoint
+## Independent fix attestations and public checkpoint
 
 Process Correctness and Library Boundaries both independently approved their
 focused fix rechecks at `63af9e6c94709805bc7fbaf247b8fcc6b5414f04`.
@@ -191,7 +193,28 @@ The final follow-up changes only the test timing allowance and this evidence
 record; reviewed implementation source is identical to the attested revision.
 Both platform checks and the real mandatory fixtures now pass locally.
 
-Publication approval is recorded above. The first gauntlet push checkpoint,
-pinned upstream thermonuclear review/fixer and second checkpoint must follow
-approval in that order. Exact-revision remote CI/integration and the annotated
-v0.1.0 tag remain release gates. No implementation is merged into main.
+Publication approval and first push are recorded above. Implementation remains
+on the feature branch; no implementation is merged into main.
+
+## Thermonuclear review and final gate record
+
+The live Cursor rubric was fetched at immutable revision
+`e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a`. Its complete maintainability criteria
+produced one Important structural finding and one Suggestion; canonical auto-fix
+consolidated child startup into a Result-returning loader with one response/exit
+boundary and removed the obsolete mutex from the sequential main-thread native
+runner. Native lifecycle ordering, startup error text and protocol remain intact.
+
+The first exact-head CI run exposed an additional Important test-boundary issue:
+Linux sometimes returned ETXTBSY when parallel tests executed freshly written
+scripts. Synthetic child tests now feed script files to Python or the shell
+directly, removing executable-file mutation. All timeout/error/respawn assertions
+remain. This gate finding and fix are included in the thermonuclear artifacts.
+
+No new imports or dependency changes were introduced. L3 history check, L5
+package/tree/license inspection and diff check were repeated on the corrected
+tree. macOS build/full tests/strict Clippy/fmt/rustdoc and the required real Vital
+fixture passed again. CI covers both platforms and the mandatory pinned SDK
+fixture. The second gauntlet push and exact-head CI evidence are recorded in
+Beans R6 before tagging. Release is the annotated v0.1.0 tag on the verified
+feature revision; no crates.io upload is part of this plan.

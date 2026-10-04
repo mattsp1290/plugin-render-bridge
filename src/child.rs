@@ -73,40 +73,13 @@ pub fn renderer_child_main() -> ! {
         }
     }
 
-    // Load and initialize plugin
-    let mut instance = match VstInstance::load(binary_path) {
-        Ok(inst) => inst,
-        Err(e) => {
-            let resp = Response::error(format!("Failed to load plugin: {e}"));
-            let json = serde_json::to_string(&resp).expect("Response serialization cannot fail");
-            println!("{json}");
+    let mut processor = match load_processor(binary_path, sample_rate, buffer_size) {
+        Ok(processor) => processor,
+        Err(error) => {
+            respond(&Response::error(error));
             std::process::exit(1);
         }
     };
-
-    if let Err(e) = instance.initialize() {
-        let resp = Response::error(format!("Failed to initialize: {e}"));
-        let json = serde_json::to_string(&resp).expect("Response serialization cannot fail");
-        println!("{json}");
-        std::process::exit(1);
-    }
-
-    let process_config = ProcessConfig::new(sample_rate as f64, buffer_size);
-    if let Err(e) = instance.setup_processing(process_config) {
-        let resp = Response::error(format!("Failed to setup processing: {e}"));
-        let json = serde_json::to_string(&resp).expect("Response serialization cannot fail");
-        println!("{json}");
-        std::process::exit(1);
-    }
-
-    if let Err(e) = instance.activate() {
-        let resp = Response::error(format!("Failed to activate: {e}"));
-        let json = serde_json::to_string(&resp).expect("Response serialization cannot fail");
-        println!("{json}");
-        std::process::exit(1);
-    }
-
-    let mut processor = VstProcessor::new(instance);
     if let Some(bpm) = tempo_bpm {
         processor.set_tempo(bpm);
     }
@@ -166,6 +139,26 @@ pub fn renderer_child_main() -> ! {
     // only this child process dies, not the host.
     drop(processor);
     std::process::exit(0);
+}
+
+/// Keep native lifecycle ordering separate from the process response boundary.
+fn load_processor(
+    binary_path: &Path,
+    sample_rate: u32,
+    buffer_size: u32,
+) -> Result<VstProcessor, String> {
+    let mut instance =
+        VstInstance::load(binary_path).map_err(|e| format!("Failed to load plugin: {e}"))?;
+    instance
+        .initialize()
+        .map_err(|e| format!("Failed to initialize: {e}"))?;
+    instance
+        .setup_processing(ProcessConfig::new(sample_rate as f64, buffer_size))
+        .map_err(|e| format!("Failed to setup processing: {e}"))?;
+    instance
+        .activate()
+        .map_err(|e| format!("Failed to activate: {e}"))?;
+    Ok(VstProcessor::new(instance))
 }
 
 fn handle_set_state(state_base64: &str, processor: &mut VstProcessor) -> Response {

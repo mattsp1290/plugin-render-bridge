@@ -62,13 +62,11 @@ fn downstream_child_rejects_missing_plugin() {
 #[cfg(unix)]
 #[test]
 fn silent_child_startup_is_bounded() {
-    use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
     let script = dir.path().join("silent-child");
     std::fs::write(&script, "#!/bin/sh\nexec sleep 30\n").unwrap();
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).unwrap();
     let start = Instant::now();
-    let result = BridgeRenderer::spawn(&script, Path::new("unused"), 44100, 512, None);
+    let result = BridgeRenderer::spawn(Path::new("/bin/sh"), &script, 44100, 512, None);
     assert!(matches!(result, Err(BridgeError::ReadyTimeout)));
     assert!(start.elapsed() < Duration::from_secs(10));
 }

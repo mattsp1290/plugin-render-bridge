@@ -1,13 +1,11 @@
 #![cfg(unix)]
 use plugin_render_bridge::bridge::{BridgeError, BridgeRenderer};
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
 fn script(dir: &Path, body: &str) -> std::path::PathBuf {
     let path = dir.join("fixture-child");
     std::fs::write(&path, format!("#!/usr/bin/env python3\n{body}")).unwrap();
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
     path
 }
 
@@ -27,7 +25,7 @@ time.sleep(30)
 "#,
     );
     let start = Instant::now();
-    let result = BridgeRenderer::spawn(&child, Path::new("unused"), 44100, 512, None);
+    let result = BridgeRenderer::spawn(Path::new("python3"), &child, 44100, 512, None);
     assert!(matches!(result, Err(BridgeError::ReadyTimeout)));
     assert!(start.elapsed() < Duration::from_secs(10));
 }
@@ -36,7 +34,7 @@ fn stalled_command(read_command: bool) {
     let dir = tempfile::tempdir().unwrap();
     let script_body = format!(
         r#"import sys, time, pathlib
-marker = pathlib.Path(sys.argv[1])
+marker = pathlib.Path(__file__).with_suffix(".marker")
 first = not marker.exists()
 marker.touch()
 print('{{"status":"ready","name":"fixture"}}', flush=True)
@@ -53,8 +51,7 @@ for line in sys.stdin:
         }
     );
     let child = script(dir.path(), &script_body);
-    let mut bridge =
-        BridgeRenderer::spawn(&child, &dir.path().join("spawn-marker"), 44100, 512, None).unwrap();
+    let mut bridge = BridgeRenderer::spawn(Path::new("python3"), &child, 44100, 512, None).unwrap();
     let data = vec![1; if read_command { 8 } else { 16 * 1024 * 1024 }];
     let start = Instant::now();
     assert!(matches!(
@@ -87,7 +84,7 @@ fn stalled_child_drop_is_bounded() {
         dir.path(),
         "import time\nprint('{\"status\":\"ready\",\"name\":\"fixture\"}', flush=True)\ntime.sleep(90)\n",
     );
-    let bridge = BridgeRenderer::spawn(&child, Path::new("unused"), 44100, 512, None).unwrap();
+    let bridge = BridgeRenderer::spawn(Path::new("python3"), &child, 44100, 512, None).unwrap();
     let start = Instant::now();
     drop(bridge);
     assert!(start.elapsed() < Duration::from_secs(2));

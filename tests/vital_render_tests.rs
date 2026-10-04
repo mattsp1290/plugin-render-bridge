@@ -11,13 +11,7 @@ use plugin_hostkit::host::ProcessConfig;
 use plugin_render_bridge::RenderSettings;
 use plugin_render_bridge::render::render_note;
 use plugin_render_bridge::vst_adapter::VstProcessor;
-use std::sync::Mutex;
 use std::time::Duration;
-
-/// In-process VST3 plugin operations are not thread-safe. Tests that load
-/// a VstInstance directly must hold this lock to avoid concurrent plugin
-/// access causing SIGSEGV on process exit.
-static IN_PROCESS_LOCK: Mutex<()> = Mutex::new(());
 
 /// Short render config for fast testing.
 fn fast_config() -> RenderSettings {
@@ -82,7 +76,6 @@ fn vital_renders_audio_for_single_note() {
         eprintln!("SKIPPED: Vital not installed");
         return;
     }
-    let _guard = IN_PROCESS_LOCK.lock().unwrap();
 
     let mut processor = match load_vital() {
         Some(p) => p,
@@ -120,7 +113,6 @@ fn vital_renders_different_pitches() {
         eprintln!("SKIPPED: Vital not installed");
         return;
     }
-    let _guard = IN_PROCESS_LOCK.lock().unwrap();
 
     let mut processor = match load_vital() {
         Some(p) => p,
@@ -161,7 +153,6 @@ fn vital_velocity_scaling() {
         eprintln!("SKIPPED: Vital not installed");
         return;
     }
-    let _guard = IN_PROCESS_LOCK.lock().unwrap();
 
     let mut processor = match load_vital() {
         Some(p) => p,
@@ -203,7 +194,6 @@ fn vital_renders_with_tempo() {
         eprintln!("SKIPPED: Vital not installed");
         return;
     }
-    let _guard = IN_PROCESS_LOCK.lock().unwrap();
 
     let mut processor = match load_vital() {
         Some(p) => p,
@@ -239,7 +229,6 @@ fn vital_render_with_tempo_change() {
         eprintln!("SKIPPED: Vital not installed");
         return;
     }
-    let _guard = IN_PROCESS_LOCK.lock().unwrap();
 
     let mut processor = match load_vital() {
         Some(p) => p,
@@ -275,6 +264,7 @@ fn vital_render_with_tempo_change() {
 }
 
 fn main() {
+    // Run native plugin cases sequentially on the process main thread.
     let cases: &[(&str, fn())] = &[
         (
             "vital_discoverable_via_scanner",
