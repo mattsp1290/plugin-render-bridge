@@ -30,3 +30,29 @@ criterion = "0.5"
 name = "plugin-renderer"
 path = "src/bin/plugin_renderer.rs"
 
+
+[[test]]
+name = "buffer_tests"
+required-features = ["testing"]
+
+[[test]]
+name = "wav_roundtrip_tests"
+required-features = ["testing"]
+
+[[test]]
+name = "render_tests"
+required-features = ["testing"]
+
+[[test]]
+name = "bridge_integration_tests"
+required-features = ["testing"]
+
+[[test]]
+name = "vital_render_tests"
+harness = false
+required-features = ["testing"]
+
+[[bench]]
+name = "audio_benchmarks"
+harness = false
+required-features = ["testing"]

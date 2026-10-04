@@ -1,23 +1,230 @@
-# Scaffold publication audit
+# Publication audit — plugin-render-bridge
 
-This main-branch foundation contains package metadata, MIT LICENSE, a neutral
-README, CI definitions, an empty library and an empty renderer target. It
-contains no imported source code, plugin fixture, preset or rendered audio.
-Implementation belongs to `feat/plugin-render-bridge-plan-kf32` and has its
-own completed publication audit and approval gate.
+<img src="../assets/compatible-logo.png" width="120" alt="VST Compatible logo">
 
-L3: no source files were imported. The initial commit records the intended
-extraction source revision for provenance; source history was not copied.
-L4: scaffold README does not use the format trademark.
-L5: package inspection lists only Cargo metadata/lockfile, LICENSE, README,
-this audit and the two scaffold source files. There are no personal paths,
-credentials, service identifiers or application dependencies in code.
-Normal dependencies contain no ms-*, lotel-*, Tauri or Specta package, and there
-is one hosting dependency pinned with the plan's exact git/tag spelling.
-Cargo.lock is identical to the implementation lockfile. The 97-package
-`cargo license --json` report offers permissive MIT, Apache-2.0, ISC or
-Unlicense options throughout; Unicode-3.0 also applies to unicode-ident.
-No copyleft-only dependency is included. The original scaffold builds locally.
+VST is a registered trademark of Steinberg Media Technologies GmbH.
+This project is not affiliated with or endorsed by Steinberg.
 
-No imported implementation is placed on main by this bootstrap. Remote CI on
-this scaffold and explicit implementation publication approval remain pending.
+Plan: `plugin-render-bridge-plan-kf32`; work packages R1–R6.
+Source: multisamples `a2207788282cf943d9d12cfeab63b4897af808b2`.
+Source drift check `git log a220778..HEAD -- crates/ms-audio crates/ms-testing`
+returned no commits. This is a fresh allowlisted import with no source history.
+Native hosting dependency: plugin-hostkit tag `v0.1.0`, peeled revision
+`27e5808a04eced5e49cb1acdaa3ef1a29a8daf32`.
+
+## L3 — Import allowlist and proprietary content
+
+Imported source files, individually selected from `crates/ms-audio/src`:
+`buffer.rs`, `pool.rs`, `midi.rs`, `wav.rs`, `render.rs`, `effect_chain.rs`,
+`vst_adapter.rs`, `bridge_protocol.rs`, `bridge.rs`, the sibling binary finder
+from `lib.rs`, and the body of `bin/vst3_renderer.rs` (now `child.rs`).
+The application orchestrator, hardware modules and sampling-plan code were excluded.
+
+Testing support imports only the mock processors, five assertion functions,
+four synthesized buffer generators, and fast render settings from
+`crates/ms-testing/src/{mock_vst,assertions,fixtures}.rs`. They are organized into
+private modules below `src/testing.rs`, gated by the `testing` feature.
+Test-only `common/mod.rs` imports the five specified Vital helpers and their
+path-search implementation, plus the newly written mandatory fixture resolver.
+No product preset helper modules were imported into the library.
+
+Imported tests from `crates/ms-audio/tests`: buffer, WAV roundtrip, render,
+bridge protocol, bridge integration, and the MIDI cases for events/sequences.
+The four batch SamplingPlan cases remain excluded. The Vital rendering target
+from `crates/ms-vst3/tests` was adapted to the descriptor-returning scanner API;
+its product preset scanner case was removed. The target now runs sequentially
+on the main thread to obey the hosting library's native lifecycle contract.
+The benchmark target imports `crates/ms-audio/benches/audio_benchmarks.rs`
+with type/import substitutions only; it builds with `testing` enabled.
+New tests cover nonexistent-plugin startup for both renderer binaries,
+a silent child startup deadline, and actual fixture render/kill/respawn.
+
+No plugin binary, preset, extracted resource, commercial audio, product scanner,
+source application directory, investigation script or private documentation
+was copied. Runtime fixtures are generated outside this repository.
+
+Product-name search: `rg -ni 'serum|omnisphere|kontakt|vital|chipsynth|aria|spire|addictive|manis' src tests`.
+There are zero product names in library source. Matches in tests are limited to
+Vital fixture names, its standard installation paths, skip messages, test labels
+and comments explaining default-state interoperability expectations. The literal
+Vital in the protocol serialization test is a synthetic name string.
+The unanchored expression also matches the word “variant” in protocol assertions;
+these are false positives. No disassembly, internal plugin class names, resource
+extraction details or private crash narratives remain.
+
+Committed path-history check:
+`git log --all --name-only --format=` must have no path matching
+`serum2_uidesc|\.fxp$|\.nki$|\.vital$|\.vstpreset$|\.vst3/`.
+The complete committed implementation history passed this prohibited-path check
+before review. Repeat it after each review correction before publication.
+
+## L4 — Trademark documentation
+
+The unchanged official logo was obtained from the already verified hosting
+repository asset and checked against
+[Steinberg's immutable official asset](https://github.com/steinbergmedia/vst3_doc/blob/6d4737c9e70750056e731d88d49aa06eefc8a1a4/artwork/VST_Compatible_Logo_Steinberg_with_TM.png).
+SHA-256: `fdf4f96b7a8bc1f53f0d2c167a27ac5fac00f29ff4a7bc3eaad851ad4be10f35`.
+Its terms are the
+[official usage guidelines](https://steinbergmedia.github.io/vst3_dev_portal/pages/VST%2B3%2BLicensing/Usage%2Bguidelines.html),
+read again on 2026-10-03. The project's MIT license does not relicense the logo.
+README places the logo beside the first format mention, with the registration
+symbol. This page and third-party notices show it too. README/notices contain
+trademark attribution and nonendorsement. Repository, crate and binary names do
+not use the trademark; Rust API names are descriptive format names. No prohibited
+stylized term appears outside audit descriptions. Hosting definitions and the SDK
+fixture are covered by the upstream hostkit's release audit; this crate vendors
+neither SDK code nor bindings.
+
+## L5 — Package, dependencies and secrets
+
+`cargo package --list --allow-dirty`: only Cargo metadata, manifest/lockfile,
+license, README/notices, official logo, source modules, reviewed tests, downstream
+renderer example, benchmark and audit. The manifest's explicit include list
+excludes review artifacts, targets, workflow files, SDK material and runtime
+plugin/audio data. Package listing is inspection; crates.io publication is outside
+scope. The dependency is the exact git/tag specification required by decision K7.
+
+`cargo tree -e normal`: no ms-*, lotel-*, Tauri or Specta package.
+`cargo tree -d`: exactly one plugin-hostkit source/version in the graph.
+`cargo license --json`: 97 packages across normal/dev/target lockfile dependencies.
+Every expression has a permissive MIT, Apache-2.0, ISC or Unlicense choice.
+Unicode-3.0 also applies to unicode-ident. The r-efi LGPL alternative is not
+selected; MIT is available. No copyleft-only dependency appears.
+
+Searches over source/tests/examples/benchmarks/workflows for personal paths,
+application identifiers, service names, API keys, tokens, secrets and passwords
+found no values or app coupling. Provenance references to multisamples in the
+README, this audit and commit messages are intentional. No personal local path
+is embedded. `ms_core|ms_vst3|ms_audio` has no source/test hits.
+
+## Local verification and execution evidence
+
+macOS arm64: build all targets with testing support, complete tests, strict
+Clippy, formatting and rustdoc with warnings denied pass. Seventy-seven non-plugin
+cases execute, plus six installed Vital bridge cases, six installed Vital
+in-process rendering cases, and the separate required fixture case. Vital state
+is the default instrument state; no product preset scanner or binary fixture is
+published. The fixture test renders a WAV, verifies samples/audio and 44100 Hz,
+kills the native child, observes ProcessCrashed, respawns and renders audio again.
+The downstream renderer example and packaged binary reject a missing plugin in
+under ten seconds; a silent child also reaches its actual five-second deadline.
+
+Linux x86_64, Rust 1.93.1 in a local container: before the standard review fixes,
+build all targets, complete tests and strict Clippy passed. After the review corrections, a full updated Linux run passed as well,
+with build concurrency limited to two jobs and the test cases serialized.
+The complete required suite and strict Clippy passed; SDK fixture again reports
+exactly one passed case and no SKIPPED lines. Installed Vital cases explicitly skip because it is not
+installed. The separate required SDK fixture executes exactly one passed test,
+zero failures/ignored cases and no SKIPPED lines. Its instrument comes from the
+MIT SDK root `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0` and recursive submodules,
+built as `note-expression-synth` with hosting examples, plugin links and validator
+disabled, following hostkit's successful SDK fixture procedure.
+
+Commands used:
+
+```sh
+cargo build --locked --all-targets --features testing
+cargo test --locked --features testing
+cargo clippy --locked --all-targets --features testing -- -D warnings
+cargo fmt --all -- --check
+RUSTDOCFLAGS='-D warnings' cargo doc --locked --no-deps --features testing
+REQUIRE_TEST_PLUGIN=1 VST3_TEST_PLUGIN=<fixture-bundle> \
+  cargo test --locked --features testing --test fixture_bridge_tests -- --nocapture
+cargo package --list --allow-dirty
+cargo tree -e normal
+cargo tree -d
+cargo license --json
+git diff --check
+```
+
+CI workflows reproduce macOS/Linux gates and the pinned Linux SDK fixture,
+including executed-count/no-skip checks. Owner publication approval was received on 2026-10-04. Remote verification
+records are maintained in Beans R6 for the exact released revision. Local
+container evidence is not a remote CI pass. R6 requires a green exact-revision CI/integration run
+before the annotated v0.1.0 release. Windows is not validated.
+
+## Approval and release state
+
+Owner approval was received on 2026-10-04 in this task conversation: ‘I approve’,
+in response to the request to approve this audit and public pushes of scaffold-only
+main and the implementation branch. The first push checkpoint succeeded at
+`f3a6bb93b7c89ac2dc3277a2f939749ca17a2460` with matching remote SHA.
+Release requires green CI and required integration on the exact tagged commit;
+the annotated tag and unauthenticated readback are recorded in Beans R6.
+
+## Standard review corrections
+
+The two independent standard reviewers returned REQUEST_CHANGES on
+`eec849f2eb2d45d22b711e50ebfac2f769121da4`. The canonical automatic fixer applied
+three Important fixes and one Suggestion: explicit startup deadline checking even
+under continuous non-ready output; supervised writes/responses/shutdown with a
+single transaction deadline and invalidated transport after timeout; required
+latency drain before tail silence detection; and sample-accurate note-off inside
+a block. The mock processor now honors those event offsets as well.
+
+New private `src/bridge/transport.rs` owns pipe workers and bounded channels.
+New synthetic tests cover noisy startup, stalled responses, a 16 MiB state write
+to an unread pipe, bounded Drop and healthy respawn after timeout. Three delay-line
+cases verify audible short notes with latency longer than sustain/declared tail,
+exact 441-sample sustain with 512-sample blocks, and defined zero-duration silence.
+No additional source repository file, preset or plugin resource was imported.
+
+Linux's first updated run exposed an end-to-end timing gap: state encoding and
+JSON serialization happened before the command clock began. The deadline now
+starts before encoding and covers both serialization and pipe I/O. The corrected
+macOS stalled-write/response regressions, required Vital fixture, strict Clippy,
+Rust 1.93 build and warning-free documentation pass. The reduced-concurrency Linux retry completed with exit zero: build, full
+feature tests, strict Clippy and required SDK fixture all passed. The noisy
+startup regression retains its ReadyTimeout assertion and uses the plan's ten-second acceptance window; the original six-second elapsed allowance
+was too tight under emulation even though the timeout error was correct.
+
+The empty remote also needs its initial main foundation. Local main contains
+only the original scaffold plus a scaffold-specific L5 audit; implementation
+commits remain on the feature branch. Both publication targets were approved on 2026-10-04 and pushed. Scaffold CI
+passed at `c34fd52c34ad9a35dfb088d99fa620289b840800`.
+
+## Independent fix attestations and public checkpoint
+
+Process Correctness and Library Boundaries both independently approved their
+focused fix rechecks at `63af9e6c94709805bc7fbaf247b8fcc6b5414f04`.
+The latter repeated its original noisy-child reproducer: it now returns
+ReadyTimeout at 5.003 seconds instead of accepting Ready at 7.215 seconds.
+The final follow-up changes only the test timing allowance and this evidence
+record; reviewed implementation source is identical to the attested revision.
+Both platform checks and the real mandatory fixtures now pass locally.
+
+Publication approval and first push are recorded above. The implementation was
+first released from the feature branch. The owner subsequently requested merging
+it into main and pushing main.
+
+## Thermonuclear review and final gate record
+
+The live Cursor rubric was fetched at immutable revision
+`e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a`. Its complete maintainability criteria
+produced one Important structural finding and one Suggestion; canonical auto-fix
+consolidated child startup into a Result-returning loader with one response/exit
+boundary and removed the obsolete mutex from the sequential main-thread native
+runner. Native lifecycle ordering, startup error text and protocol remain intact.
+
+The first exact-head CI run exposed an additional Important test-boundary issue:
+Linux sometimes returned ETXTBSY when parallel tests executed freshly written
+scripts. Synthetic child tests now feed script files to Python or the shell
+directly, removing executable-file mutation. All timeout/error/respawn assertions
+remain. This gate finding and fix are included in the thermonuclear artifacts.
+
+No new imports or dependency changes were introduced. L3 history check, L5
+package/tree/license inspection and diff check were repeated on the corrected
+tree. macOS build/full tests/strict Clippy/fmt/rustdoc and the required real Vital
+fixture passed again. CI covers both platforms and the mandatory pinned SDK
+fixture. The second gauntlet push and exact-head CI evidence are recorded in
+Beans R6 before tagging. Release is the annotated v0.1.0 tag on the verified
+feature revision; no crates.io upload is part of this plan.
+
+## Main integration
+
+After publication, the owner explicitly requested pushing the feature branch,
+merging it into main, and pushing main. The feature branch was already synced.
+The merge retains the completed implementation audit instead of the earlier
+scaffold-only audit. All implementation files match the green released revision
+`5e853c807a39417d7fa27203e52f902ccc7d95d9`; only this integration record changes.
+The annotated release tag remains on that verified revision.
